@@ -73,6 +73,9 @@ end
 -- Setup function to initialize the plugin if needed
 function M.setup()
 	-- Any setup logic if necessary, otherwise leave empty
+
+	-- Create a command to toggle the terminal
+	vim.api.nvim_create_user_command("TTToggle", toggle_tt_setup, {})
 end
 
 return M
