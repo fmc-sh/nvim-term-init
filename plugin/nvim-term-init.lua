@@ -1,0 +1,2 @@
+-- plugin/hello-world.lua
+-- require("nvim-term-init").setup()
