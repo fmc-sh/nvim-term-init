@@ -1,7 +1,7 @@
 local M = {}
 
 function M.setup()
-	-- Create a persistent terminal buffer, initially nil
+	-- Create a persistent terminal buffer and window, initially nil
 	local my_term_buf = nil
 	local my_term_win = nil
 
@@ -42,32 +42,33 @@ function M.setup()
 		end
 	end
 
-	-- Function to start 'tt-setup' in Neovim's terminal on startup
+	-- Function to start 'tt-setup' in Neovim's terminal on the first toggle call
 	local function start_tt_setup_in_term()
-		initialize_my_term()
+		-- Check if the temp file exists before initializing the terminal
+		local file = io.open("/tmp/nvim_first_run", "r")
+		if file ~= nil then
+			io.close(file)
+			print("Starting tt-setup from temp file") -- Debugging message
+			initialize_my_term()
 
-		-- Optionally hide the terminal after running tt-setup
-		vim.defer_fn(function()
-			print("Hiding the terminal after tt-setup") -- Debugging message
-			if my_term_win and vim.api.nvim_win_is_valid(my_term_win) then
-				vim.api.nvim_win_close(my_term_win, true)
-				my_term_win = nil
-			end
-		end, 100) -- Delay to ensure tt-setup runs
+			-- Optionally hide the terminal after running tt-setup
+			vim.defer_fn(function()
+				print("Hiding the terminal after tt-setup") -- Debugging message
+				if my_term_win and vim.api.nvim_win_is_valid(my_term_win) then
+					vim.api.nvim_win_close(my_term_win, true)
+					my_term_win = nil
+				end
+			end, 100) -- Delay to ensure tt-setup runs
+
+			-- Remove the temp file after the first run
+			os.remove("/tmp/nvim_first_run")
+		end
 	end
 
-	-- Automatically run 'tt-setup' in terminal on Neovim startup if the temp file exists
+	-- Keybinding: Run 'tt-setup' on the first toggle
 	vim.api.nvim_create_autocmd("VimEnter", {
 		callback = function()
-			-- Check if the temp file exists
-			local file = io.open("/tmp/nvim_first_run", "r")
-			if file ~= nil then
-				io.close(file)
-				print("Starting tt-setup from temp file") -- Debugging message
-				start_tt_setup_in_term()
-				-- Remove the temp file after the first run
-				os.remove("/tmp/nvim_first_run")
-			end
+			-- Do not initialize at startup; wait for toggle
 		end,
 	})
 end
