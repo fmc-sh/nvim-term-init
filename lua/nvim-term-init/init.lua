@@ -1,76 +1,78 @@
 local M = {}
 
-function M.setup()
-	-- Create a persistent terminal buffer and window, initially nil
-	local my_term_buf = nil
-	local my_term_win = nil
+-- Variables to keep track of the terminal buffer and window
+local my_term_buf = nil
+local my_term_win = nil
+local previous_layout = nil
 
-	-- Function to initialize the terminal if not already created
-	local function initialize_my_term()
-		if not my_term_buf or not vim.api.nvim_buf_is_valid(my_term_buf) then
-			print("Initializing my_term instance") -- Debugging message
-			my_term_buf = vim.api.nvim_create_buf(false, true) -- Create a new terminal buffer
-
-			-- Open terminal and run the 'tt-setup' command
-			vim.fn.termopen("tt-setup", {
-				on_exit = function()
-					print("tt-setup exited")
-				end,
-			})
-
-			-- Optionally create a floating window for the terminal
-			my_term_win = vim.api.nvim_open_win(my_term_buf, true, {
-				relative = "editor",
-				width = 80,
-				height = 20,
-				row = 10,
-				col = 10,
-				style = "minimal",
-			})
+-- Function to check if a buffer with a given name exists
+local function get_buf_by_name(name)
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_loaded(buf) and vim.api.nvim_buf_get_name(buf):match(name) then
+			return buf
 		end
 	end
+	return nil
+end
 
-	-- Function to toggle the terminal
-	function M.toggle_my_term()
-		if my_term_win and vim.api.nvim_win_is_valid(my_term_win) then
-			print("Toggling terminal") -- Debugging message
-			vim.api.nvim_win_close(my_term_win, true)
-			my_term_win = nil
+-- Function to save the current window layout
+local function save_layout()
+	previous_layout = vim.fn.winrestcmd() -- Save the window layout as a command
+end
+
+-- Function to restore the previous window layout
+local function restore_layout()
+	if previous_layout then
+		vim.cmd(previous_layout) -- Execute the saved window layout command
+	end
+end
+
+-- Function to toggle `tt-setup` terminal
+function M.toggle_tt_setup()
+	-- Check if a buffer named 'tmux' exists
+	my_term_buf = get_buf_by_name("tmux")
+
+	-- If the terminal is already open, close it and restore layout
+	if my_term_win and vim.api.nvim_win_is_valid(my_term_win) then
+		vim.api.nvim_win_close(my_term_win, true)
+		restore_layout() -- Restore previous layout
+		my_term_win = nil
+		vim.cmd('echo "Closed tt-setup terminal"') -- Debugging message
+	else
+		-- If the buffer exists, just open it full screen
+		if my_term_buf then
+			save_layout()
+			vim.cmd("tabnew") -- Open a new tab to simulate full-screen effect
+			vim.api.nvim_set_current_buf(my_term_buf)
+			my_term_win = vim.api.nvim_get_current_win()
+			vim.cmd("startinsert")
+			vim.cmd('echo "Opened existing tt-setup terminal"') -- Debugging message
 		else
-			print("my_term is nil, initializing") -- Debugging message
-			initialize_my_term()
+			-- Save the current layout before opening a new terminal
+			save_layout()
+
+			-- Create a new terminal buffer if it doesn't exist
+			my_term_buf = vim.api.nvim_create_buf(false, true) -- Create a new buffer
+			vim.cmd("tabnew") -- Open in a new tab (simulate full-screen)
+			vim.api.nvim_set_current_buf(my_term_buf) -- Set the new buffer as the current one
+			vim.cmd("terminal tt-setup") -- Run the `tt-setup` command in the terminal
+
+			-- Set the buffer name to 'tmux'
+			vim.api.nvim_buf_set_name(my_term_buf, "tmux")
+
+			-- Store the terminal window
+			my_term_win = vim.api.nvim_get_current_win()
+
+			-- Enter insert mode
+			vim.cmd("startinsert")
+			vim.cmd('echo "Opened new tt-setup terminal"') -- Debugging message
 		end
 	end
+end
 
-	-- Function to start 'tt-setup' in Neovim's terminal on the first toggle call
-	local function start_tt_setup_in_term()
-		-- Check if the temp file exists before initializing the terminal
-		local file = io.open("/tmp/nvim_first_run", "r")
-		if file ~= nil then
-			io.close(file)
-			print("Starting tt-setup from temp file") -- Debugging message
-			initialize_my_term()
-
-			-- Optionally hide the terminal after running tt-setup
-			vim.defer_fn(function()
-				print("Hiding the terminal after tt-setup") -- Debugging message
-				if my_term_win and vim.api.nvim_win_is_valid(my_term_win) then
-					vim.api.nvim_win_close(my_term_win, true)
-					my_term_win = nil
-				end
-			end, 100) -- Delay to ensure tt-setup runs
-
-			-- Remove the temp file after the first run
-			os.remove("/tmp/nvim_first_run")
-		end
-	end
-
-	-- Keybinding: Run 'tt-setup' on the first toggle
-	vim.api.nvim_create_autocmd("VimEnter", {
-		callback = function()
-			-- Do not initialize at startup; wait for toggle
-		end,
-	})
+-- Setup function to initialize the plugin if needed
+function M.setup()
+	-- Any setup logic if necessary, otherwise leave empty
 end
 
 return M
